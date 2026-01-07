@@ -1,0 +1,137 @@
+kpis:
+  total_revenue:
+    definition: "Total revenue is the sum of payment_value for orders."
+    grain: "order"
+    tables:
+      - "order_payments"
+    sql_example: |
+      SELECT
+        SUM(payment_value) AS total_revenue
+      FROM order_payments;
+
+  number_of_orders:
+    definition: "Number of orders is the count of distinct order_id."
+    grain: "order"
+    tables:
+      - "orders"
+    sql_example: |
+      SELECT
+        COUNT(DISTINCT order_id) AS number_of_orders
+      FROM orders;
+
+  average_order_value:
+    definition: "Average order value (AOV) = total revenue / number of orders."
+    grain: "order"
+    tables:
+      - "orders"
+      - "order_payments"
+    sql_example: |
+      WITH revenue AS (
+        SELECT SUM(payment_value) AS rev
+        FROM order_payments
+      ),
+      orders_cnt AS (
+        SELECT COUNT(DISTINCT order_id) AS n_orders
+        FROM orders
+      )
+      SELECT
+        rev / NULLIF(n_orders, 0) AS average_order_value
+      FROM revenue, orders_cnt;
+
+  cancellation_rate:
+    definition: "Cancellation rate = canceled orders / total orders."
+    grain: "order"
+    tables:
+      - "orders"
+    sql_example: |
+      SELECT
+        SUM(CASE WHEN order_status = 'canceled' THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS cancellation_rate
+      FROM orders;
+
+  revenue_by_month:
+    definition: "Monthly revenue grouped by order_purchase_timestamp month."
+    grain: "month"
+    tables:
+      - "orders"
+      - "order_payments"
+    sql_example: |
+      SELECT
+        DATE_TRUNC('month', o.order_purchase_timestamp) AS month,
+        SUM(p.payment_value) AS revenue
+      FROM orders o
+      JOIN order_payments p USING(order_id)
+      GROUP BY 1
+      ORDER BY 1;
+
+  orders_by_month:
+    definition: "Monthly order volume grouped by purchase month."
+    grain: "month"
+    tables:
+      - "orders"
+    sql_example: |
+      SELECT
+        DATE_TRUNC('month', order_purchase_timestamp) AS month,
+        COUNT(DISTINCT order_id) AS orders
+      FROM orders
+      GROUP BY 1
+      ORDER BY 1;
+
+  repeat_customer_rate:
+    definition: "Repeat customer rate = customers with 2+ orders / total customers (by customer_unique_id)."
+    grain: "customer"
+    tables:
+      - "orders"
+      - "customers"
+    sql_example: |
+      WITH orders_per_customer AS (
+        SELECT
+          c.customer_unique_id,
+          COUNT(DISTINCT o.order_id) AS orders_cnt
+        FROM orders o
+        JOIN customers c ON o.customer_id = c.customer_id
+        GROUP BY 1
+      )
+      SELECT
+        SUM(CASE WHEN orders_cnt >= 2 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS repeat_customer_rate
+      FROM orders_per_customer;
+
+  late_delivery_rate:
+    definition: "Late delivery rate = delivered orders where delivered_date > estimated_date / delivered orders."
+    grain: "order"
+    tables:
+      - "orders"
+    sql_example: |
+      SELECT
+        SUM(CASE WHEN order_delivered_customer_date > order_estimated_delivery_date THEN 1 ELSE 0 END) * 1.0
+        / COUNT(*) AS late_delivery_rate
+      FROM orders
+      WHERE order_status = 'delivered'
+        AND order_delivered_customer_date IS NOT NULL
+        AND order_estimated_delivery_date IS NOT NULL;
+
+  avg_delivery_delay_days:
+    definition: "Average delivery delay days = delivered_date - estimated_delivery_date (positive means late)."
+    grain: "order"
+    tables:
+      - "orders"
+    sql_example: |
+      SELECT
+        AVG(DATE_DIFF('day', order_estimated_delivery_date, order_delivered_customer_date)) AS avg_delivery_delay_days
+      FROM orders
+      WHERE order_status = 'delivered'
+        AND order_delivered_customer_date IS NOT NULL
+        AND order_estimated_delivery_date IS NOT NULL;
+
+  top_products_by_revenue:
+    definition: "Top products by revenue based on sum(order_items.price), excluding freight."
+    grain: "product"
+    tables:
+      - "order_items"
+    sql_example: |
+      SELECT
+        product_id,
+        SUM(price) AS revenue
+      FROM order_items
+      GROUP BY 1
+      ORDER BY revenue DESC
+      LIMIT 10;

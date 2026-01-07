@@ -1,0 +1,6 @@
+{"question": "Show revenue by month", "expected_kpi": "revenue_by_month", "should_refuse": false}
+{"question": "What is average order value?", "expected_kpi": "average_order_value", "should_refuse": false}
+{"question": "Number of orders", "expected_kpi": "number_of_orders", "should_refuse": false}
+{"question": "Average order value by customer", "expected_kpi": "average_order_value", "should_refuse": false}
+{"question": "What is net promoter score?", "expected_kpi": null, "should_refuse": true}
+{"question": "How many suppliers do we have?", "expected_kpi": null, "should_refuse": true}
